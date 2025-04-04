@@ -1,6 +1,38 @@
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
+#include "Renderer/ShaderProgram.h"
+
 #include <iostream>
+
+GLfloat point[] = {
+     0.0f,  0.5f, 0.0f,
+     0.5f, -0.5f, 0.5f,
+    -0.5f, -0.5f, 0.0f
+};
+
+GLfloat colors[] = {
+    1.0f, 0.0f, 0.0f,
+    0.0f, 1.0f, 0.0f,
+    0.0f, 0.0f, 1.0f
+};
+
+const char* vertex_shader =
+"#version 460\n"
+"layout(location = 0) in vec3 vertex_position;"
+"layout(location = 0) in vec3 vertex_color;"
+"out vec3 color;"
+"void main() {"
+"   color = vertex_color;"
+"   gl_Position = vec4(vertex_position, 1.0);"
+"}";
+
+const char* fragment_shader =
+"#version 460\n"
+"in vec3 color;"
+"out vec4 frag_color;"
+"void main() {"
+"   frag_color = vec4(color, 1.0);"
+"}";
 
 int g_windowSizeX = 640;
 int g_windowSizeY = 480;
@@ -34,8 +66,8 @@ int main(void)
 
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 6);
-    glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
     // CODE_RPOFILE - все функции включены стандартным функции
+    glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
 
 
@@ -68,12 +100,53 @@ int main(void)
 
     glClearColor(1, 1, 0, 1);
 
+    std::string vertexShader(vertex_shader);
+    std::string fragmentShader(fragment_shader);
+    Renderer::ShaderProgram shaderProgram(vertexShader, fragmentShader);
+    if (!shaderProgram.isCompiled())
+    {
+        std::cerr << "Can't create shader program!" << std::endl;
+        return -1;
+    }
+
+    GLuint points_vbo = 0;
+    // Генерит один buf obj и записывает результат
+    glGenBuffers(1, &points_vbo);
+    glBindBuffer(GL_ARRAY_BUFFER, points_vbo);
+    // STATIC DRAW оптимизация для драйвера
+    glBufferData(GL_ARRAY_BUFFER, sizeof(point), point, GL_STATIC_DRAW);
+
+    GLuint colors_vbo = 0;
+    // Генерит один buf obj и записывает результат
+    glGenBuffers(1, &colors_vbo);
+    glBindBuffer(GL_ARRAY_BUFFER, colors_vbo);
+    // STATIC DRAW оптимизация для драйвера
+    glBufferData(GL_ARRAY_BUFFER, sizeof(colors), colors, GL_STATIC_DRAW);
+
+    GLuint vao = 0;
+    glGenVertexArrays(1, &vao);
+    glBindVertexArray(vao);
+
+    // Включает 0-вую позицию в векторе
+    glEnableVertexAttribArray(0);
+    glBindBuffer(GL_ARRAY_BUFFER, points_vbo);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, nullptr);
+
+    glEnableVertexAttribArray(1);
+    glBindBuffer(GL_ARRAY_BUFFER, colors_vbo);
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 0, nullptr);
+
     // Пока окно не закрыто  
     /* Loop until the user closes the window */
     while (!glfwWindowShouldClose(pWindow))
     {
         /* Render here */
         glClear(GL_COLOR_BUFFER_BIT);
+
+        shaderProgram.use();
+        glBindVertexArray(vao);
+        // Что рисуем * ЛИНИИ, ТРЕУГОЛЬНИКИ и т.д.*
+        glDrawArrays(GL_TRIANGLES, 0, 3);
 
         // Меняет местами два буфера
         // Видеокарта рисует буфер карта, который потом передается на монитор
